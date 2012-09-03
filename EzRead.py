@@ -162,7 +162,7 @@ class GenTextFiles(object):
             if nexturl is not None:
                 nexturl=nexturl.group(1)
         finally:
-            nexturl=None
+            pass
 
         if nexturl is not None:
             wirte_lastURlFile=codecs.open("lasturl.txt","w",'utf-8')
