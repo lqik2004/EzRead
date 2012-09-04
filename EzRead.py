@@ -44,10 +44,10 @@ import html2text
 import string
 
 _version = '1'
-
+realPath=os.path.dirname(os.path.realpath(__file__))
 ####################SENDTOKINDLE####################
 class SendKindle:
-    conffile='./sendkindle.cfg'
+    conffile=realPath+'/sendkindle.cfg'
     sample_conf='''  [Default]
   smtp_server = smtp.gmail.com
   smtp_port = 465
@@ -130,29 +130,30 @@ class GenTextFiles(object):
         super(GenTextFiles, self).__init__()
         self.filenames=[]
 
-        lasturl=open("lasturl.txt").read()
+        lasturl=open(realPath+"/lasturl.txt").read()
         url=lasturl
         #Doc Number--I could not use chinese char in file title...help me ,pls.
         pg=re.search(r'/([^.]*).html',url).group(1)
         fname="WDQK_"+pg+".txt"
 
         
-        files = os.listdir(os.getcwd())  
+        files = os.listdir(realPath)  
         result=fname in files
         if result is False:
             #不存在
             self.genNewFile(url,pg)
 
         while self.searchNextURL(url) is True :
-            lasturl=open("lasturl.txt").read()
+            lasturl=open(realPath+"/lasturl.txt").read()
             url=lasturl
             #Doc Number--I could not use chinese char in file title...help me ,pls.
             pg=re.search(r'/([^.]*).html',url).group(1)
             self.genNewFile(url,pg)
-        
-        #send files to kindle
-        kindle = SendKindle()
-        kindle.send_mail(self.filenames)
+            
+        if self.filenames :
+            #send files to kindle
+            kindle = SendKindle()
+            kindle.send_mail(self.filenames)
         
     def searchNextURL(self,currenturl):
         req = urllib.urlopen(currenturl)
@@ -165,7 +166,7 @@ class GenTextFiles(object):
             pass
 
         if nexturl is not None:
-            wirte_lastURlFile=codecs.open("lasturl.txt","w",'utf-8')
+            wirte_lastURlFile=codecs.open(realPath+"/lasturl.txt","w",'utf-8')
             wirte_lastURlFile.write(nexturl)
             wirte_lastURlFile.close()
             #print nexturl
@@ -190,8 +191,8 @@ class GenTextFiles(object):
         output=html2text.HTML2Text()
         output.ignore_links=True
         ot_string=output.handle(text)
-        ot_string=title+"\n"+ot_string+u"\n感谢使用本书的自动生成工具EzRead\n作者：lqik2004#gmail.com\nTwitter:@lqik2004"
-        filename="WDQK_"+pg+".txt"
+        ot_string=title+u"\n\n"+ot_string+u"\n感谢使用本书的自动生成工具EzRead\n作者：lqik2004#gmail.com\nTwitter:@lqik2004"
+        filename=realPath+"/WDQK_"+pg+".txt"
         ot_file=codecs.open(filename,'w','utf-8')
         ot_file.write(ot_string)
         ot_file.close()
