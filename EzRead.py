@@ -42,6 +42,7 @@ import codecs
 from feedparser import _getCharacterEncoding
 import html2text
 import string
+import subprocess
 
 _version = '1'
 realPath=os.path.dirname(os.path.realpath(__file__))
@@ -151,10 +152,13 @@ class GenTextFiles(object):
             self.genNewFile(url,pg)
             
         if self.filenames :
+            mobifilePath=self.makeMobiVersion(self.filenames)
+            
             #send files to kindle
             kindle = SendKindle()
-            kindle.send_mail(self.filenames)
-        
+            #if you don't want send mobi file you can change mobifilePath to self.filenames(text file path)
+            kindle.send_mail(mobifilePath)
+            
     def searchNextURL(self,currenturl):
         req = urllib.urlopen(currenturl)
         text = req.read()
@@ -198,7 +202,27 @@ class GenTextFiles(object):
         ot_file.close()
         self.filenames.append(filename)
 
-
+    def makeMobiVersion(self,txtfilenams):
+        mobifilePath=[]
+        for path in txtfilenams:
+            fp = open(path, "r")
+            htmlPath=os.path.splitext(path)[0]+".html"
+            htmlFiles=open(htmlPath,"w")
+            lines=fp.readlines()
+            title="<html><head><meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"><title>"+lines[0]+"</title></head><body>"
+            htmlFiles.write(title)
+            for line in lines:
+                if not line.isspace():
+                    htmlFiles.write("<p>"+line+"</p>");
+            htmlFiles.write("</body></html>")
+            htmlFiles.close()
+            #change the path and the kindlegen file to your path
+            cmd = realPath+('/kg %s' % htmlPath)
+            print cmd
+            subprocess.call(cmd, shell=True)
+            os.unlink(htmlPath)
+            mobifilePath.append(os.path.splitext(htmlPath)[0]+".mobi")
+        return mobifilePath
 
 def main():
     '''Run the main program'''
