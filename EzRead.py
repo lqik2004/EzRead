@@ -135,8 +135,8 @@ class GenTextFiles(object):
         lasturl=open(realPath+"/lasturl.txt").read()
         url=lasturl
         #Doc Number--I could not use chinese char in file title...help me ,pls.
-        pg=re.search(r'/([^.]*).html',url).group(1)
-        fname="WDQK_"+pg+".txt"
+        pg=re.search(r'([^./]*).html$',url).group(1)
+        fname="ZT_"+pg+".txt"
 
         
         files = os.listdir(realPath)  
@@ -149,7 +149,7 @@ class GenTextFiles(object):
             lasturl=open(realPath+"/lasturl.txt").read()
             url=lasturl
             #Doc Number--I could not use chinese char in file title...help me ,pls.
-            pg=re.search(r'/([^.]*).html',url).group(1)
+            pg=re.search(r'([^./]*).html$',url).group(1)
             self.genNewFile(url,pg)
             
         if self.filenames :
@@ -182,7 +182,7 @@ class GenTextFiles(object):
         text = req.read()
         #title
         title=re.search(r'<H1>([^<]*)</H1>',text).group(1)
-        title="《武动乾坤》"+title
+        title=title
         title=title.decode("utf-8")
         #print title
         
@@ -197,10 +197,11 @@ class GenTextFiles(object):
         output.ignore_links=True
         ot_string=output.handle(text)
         ot_string=title+u"\n\n"+ot_string+u"\n感谢使用本书的自动生成工具EzRead\n作者：lqik2004#gmail.com\nTwitter:@lqik2004"
-        filename=realPath+"/WDQK_"+pg+".txt"
+        filename=realPath+"/ZT_"+pg+".txt"
         ot_file=codecs.open(filename,'w','utf-8')
         ot_file.write(ot_string)
         ot_file.close()
+        print "生成新文件：%s"%(filename)
         self.filenames.append(filename)
 
     def makeMobiVersion(self,txtfilenames):
@@ -290,8 +291,8 @@ class makeMobiFiles(object):
 <meta name="dtb:totalPageCount" content="0"/>
 <meta name="dtb:maxPageNumber" content="0"/>
 </head>
-<docTitle><text>武动乾坤</text></docTitle>
-<docAuthor><text>天蚕土豆</text></docAuthor>
+<docTitle><text>遮天</text></docTitle>
+<docAuthor><text>辰东</text></docAuthor>
 <navMap>'''
         ncxtoc='''<navPoint class="toc" id="toc" playOrder="1">
         <navLabel><text>Table of Contents</text></navLabel>
@@ -328,10 +329,10 @@ class makeMobiFiles(object):
 <package unique-identifier="uid">
         <metadata>
                 <dc-metadata xmlns:dc="http://purl.org/metadata/dublin_core" xmlns:oebpackage="http://openebook.org/namespaces/oeb-package/1.0/">
-                        <dc:Title>武动乾坤%s</dc:Title>
+                        <dc:Title>遮天%s</dc:Title>
                         <dc:Language>zh</dc:Language>
                         <dc:Identifier id="uid">010B5D2ACA</dc:Identifier>
-                        <dc:Creator>作者:天蚕土豆 生成工具:EzRead</dc:Creator>
+                        <dc:Creator>作者:辰东 生成工具:EzRead</dc:Creator>
                         <dc:Subject>小说</dc:Subject>
                 </dc-metadata>
                 <x-metadata>
@@ -354,7 +355,7 @@ class makeMobiFiles(object):
         </guide>
 </package>'''%(today,coverPath,tocNcxPath,tocHtmlPath,htmlPathTag,itemref,tocHtmlPath)
 
-        filename=realPath+"/WDQK_%s.opf"%(today)
+        filename=realPath+"/ZT_%s.opf"%(today)
         ot_file=open(filename,'w')
         ot_file.write(opf)
         ot_file.close()
