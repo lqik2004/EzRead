@@ -3,18 +3,30 @@
 EzRead是一款自动从目标网站上获取网页内容并自动发送到Kindle的脚本  
 目前EzRead支持的小说有：  
 **《武动乾坤》**  
-![](http://distilleryimage11.s3.amazonaws.com/624da6a2f5ab11e1a58222000a1cde8e_7.jpg)
+![](http://distilleryimage11.s3.amazonaws.com/624da6a2f5ab11e1a58222000a1cde8e_7.jpg)    
 
+
+目录：  
+![](https://img.skitch.com/20120908-ju943iw4qqhn2h3jgyh1r8hui9.jpg)  
+可跳转：  
+![](https://img.skitch.com/20120908-bd3jmeeyfqhw7j97ghgmeei2m7.jpg)  
+封面：  
+![](https://img.skitch.com/20120908-n193wh9fna32wkfb5wgbwyxjtq.jpg)    
+中文文件名显示：  
+![](https://img.skitch.com/20120908-xcwgbnb9gfwb87gjwnksswh1b5.jpg)  
 ###特点
 * 干净的网页内容：过滤了无用的广告，评论，连接等信息，只保留阅读内容
 * 不伤眼睛的阅读：通过网络同步到Kindle上，更环保，更舒服
 * 完全自动化：当第一次设置好，每当小说更新Kindle都会自动收到转换好的文本
+* 精美的排版：从1.2版本之后，可以自动生成带封面，带目录，可右键跳转章节的小说
 
 ###更新日志
+* v1.2 在生成的mobi文件中增加了中文文件名，作者信息，封面，中文目录，目录跳转，右键跳转等特性
 * v1.1 增加了生成mobi版本的功能，（需要配合KindleGen，可以从amazon官网下载适合你的命令行版本），支持Kindle显示中文文件名（仅限mobi版本）**强烈建议启用mobi生成**  
 
 ###需求
 * 一台安装*nix的电脑
+* 如果想使用KindleGen生成mobi的话，需要i386架构的电脑，否则请关闭mobi生成方法
 * python2.5以上
 
 ###部署说明
@@ -23,6 +35,7 @@ EzRead是一款自动从目标网站上获取网页内容并自动发送到Kindl
 3. 到安装目录创建一个名为：**sendkindle.cfg**的文件，在文件中我提供了sample，这里是邮箱的设置信息，只需要设置一次
 4. 到Amazon.com你的账户中添加你刚才设置的Email，用来允许接受邮件发送
 4. 创建一个名为：**lasturl.txt**的文件，这里存放下载地址的起点，只需要第一次设置，同样提供sample
+5. 到Amazon官网下载适合你系统的KindleGen
 5. 在终端执行**python EzRead.py**，需要等待一段时间，如果出现了**sent email to youremailaddress**就说明发送成功了
 6. 在kindle上等待收取推送
 7. 阅读

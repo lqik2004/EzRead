@@ -43,6 +43,7 @@ from feedparser import _getCharacterEncoding
 import html2text
 import string
 import subprocess
+import time
 
 _version = '1'
 realPath=os.path.dirname(os.path.realpath(__file__))
@@ -202,9 +203,43 @@ class GenTextFiles(object):
         ot_file.close()
         self.filenames.append(filename)
 
-    def makeMobiVersion(self,txtfilenams):
+    def makeMobiVersion(self,txtfilenames):
+        MakeMobiFiles=makeMobiFiles()
+        mobifilePath=MakeMobiFiles.genMobiFiles(txtfilenames)
+        return mobifilePath
+
+#@@@@@@@@@@@@@@@@--MOBI FILES--@@@@@@@@@@@@@@@@@@@#
+class makeMobiFiles(object):
+    """docstring for makeMobiFiles"""
+    def __init__(self):
+        super(makeMobiFiles, self).__init__()
+
+    def genMobiFiles(self,txtfilenames):
         mobifilePath=[]
-        for path in txtfilenams:
+        coverPath=realPath+'/Cover.jpg'
+        htmlFilePathAndTitle=self.make_content_html(txtfilenames)
+        tocHtmlPath=self.make_TOC_html(htmlFilePathAndTitle)
+        tocNcxPath=self.make_TOC_ncx(htmlFilePathAndTitle,tocHtmlPath)
+        opfPath=self.make_OPF(coverPath,tocNcxPath,tocHtmlPath,htmlFilePathAndTitle)
+        #change the path and the kindlegen file to your path
+        cmd = realPath+('/KindleGen %s' % opfPath)
+        print cmd
+        subprocess.call(cmd, shell=True)
+        mobifilePath.append(os.path.splitext(opfPath)[0]+".mobi")
+        #clean tmp files
+        self._cleanTmpFiles(htmlFilePathAndTitle,tocHtmlPath,tocNcxPath,opfPath)
+        return mobifilePath
+
+    def _cleanTmpFiles(self,htmlFilePathAndTitle,tocHtmlPath,tocNcxPath,opfPath):
+        os.unlink(tocHtmlPath)
+        os.unlink(tocNcxPath)
+        os.unlink(opfPath)
+        for fileAndTitle in htmlFilePathAndTitle:
+            os.unlink(fileAndTitle[0])
+
+    def make_content_html(self,txtfilenames):
+        htmlFilePathAndTitle=[]
+        for path in txtfilenames:
             fp = open(path, "r")
             htmlPath=os.path.splitext(path)[0]+".html"
             htmlFiles=open(htmlPath,"w")
@@ -216,14 +251,116 @@ class GenTextFiles(object):
                     htmlFiles.write("<p>"+line+"</p>");
             htmlFiles.write("</body></html>")
             htmlFiles.close()
-            #change the path and the kindlegen file to your path
-            cmd = realPath+('/kg %s' % htmlPath)
-            print cmd
-            subprocess.call(cmd, shell=True)
-            os.unlink(htmlPath)
-            mobifilePath.append(os.path.splitext(htmlPath)[0]+".mobi")
-        return mobifilePath
+            fileinfo=[htmlPath,lines[0]]
+            htmlFilePathAndTitle.append(fileinfo)
+        return htmlFilePathAndTitle
 
+    def make_TOC_html(self,htmlFilePathAndTitle):
+        #htmlFilePathAndTitle=[[path,title],[path,title].....]
+        tocHeader='''<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Table of Contents</title>
+</head>
+<body>
+<h1>目录</h1>
+<hr width="80%" />
+<p><br />'''
+        tocContent=""
+        for pathAndTitle in htmlFilePathAndTitle:
+            tocContent+='<a href="%s">%s</a><br />'%(pathAndTitle[0],pathAndTitle[1])
+        tocFooter="</p></body></html>"
+
+        tochtml=tocHeader+tocContent+tocFooter
+        filename=realPath+"/toc.html"
+        ot_file=open(filename,'w')
+        ot_file.write(tochtml)
+        ot_file.close()
+        return filename
+
+    def make_TOC_ncx(self,htmlFilePathAndTitle,tocPath):
+        #htmlFilePathAndTitle=[[path,title],[path,title].....]
+        ncxHearder='''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="en-US">
+<head>
+<meta name="dtb:uid" content="BookId"/>
+<meta name="dtb:depth" content="2"/>
+<meta name="dtb:totalPageCount" content="0"/>
+<meta name="dtb:maxPageNumber" content="0"/>
+</head>
+<docTitle><text>武动乾坤</text></docTitle>
+<docAuthor><text>天蚕土豆</text></docAuthor>
+<navMap>'''
+        ncxtoc='''<navPoint class="toc" id="toc" playOrder="1">
+        <navLabel><text>Table of Contents</text></navLabel>
+        <content src="%s"/></navPoint>'''%(tocPath)
+        ncxContent=""
+        idNum=2;
+        for pathAndTitle in htmlFilePathAndTitle:    
+            ncxContent+='''<navPoint class="chapter" id="chapter%d" playOrder="%d">
+            <navLabel><text>%s</text></navLabel>
+            <content src="%s"/></navPoint>'''%(idNum,idNum,pathAndTitle[1],pathAndTitle[0])
+            idNum+=1
+        ncxFooter="</navMap></ncx></ncx>"
+
+        ncx=ncxHearder+ncxtoc+ncxContent+ncxFooter
+        filename=realPath+"/toc.ncx"
+        ot_file=open(filename,'w')
+        ot_file.write(ncx)
+        ot_file.close()
+        return filename
+
+    def make_OPF(self,coverPath,tocNcxPath,tocHtmlPath,htmlFilePathAndTitle):
+        today=time.strftime('%m%d%H%M',time.localtime(time.time()))
+        if coverPath is None:
+            coverPath="None"
+        tagID=1
+        htmlPathTag=''
+        itemref=''
+        for pathAndTitle in htmlFilePathAndTitle:
+            htmlPathTag+='<item id="item%d" media-type="text/x-oeb1-document" href="%s"></item>'%(tagID,pathAndTitle[0])
+            itemref+='<itemref idref="item%d"/>'%(tagID)
+            tagID+=1
+
+        opf='''<?xml version="1.0" encoding="utf-8"?>
+<package unique-identifier="uid">
+        <metadata>
+                <dc-metadata xmlns:dc="http://purl.org/metadata/dublin_core" xmlns:oebpackage="http://openebook.org/namespaces/oeb-package/1.0/">
+                        <dc:Title>武动乾坤%s</dc:Title>
+                        <dc:Language>zh</dc:Language>
+                        <dc:Identifier id="uid">010B5D2ACA</dc:Identifier>
+                        <dc:Creator>作者:天蚕土豆 生成工具:EzRead</dc:Creator>
+                        <dc:Subject>小说</dc:Subject>
+                </dc-metadata>
+                <x-metadata>
+                        <output encoding="utf-8"></output>
+                        <EmbeddedCover>%s</EmbeddedCover>
+                </x-metadata>
+        </metadata>
+        <manifest>
+                <item id="My_Table_of_Contents" media-type="application/x-dtbncx+xml" href="%s"/>
+                <item id="item0" media-type="application/xhtml+xml" href="%s"></item>
+                %s
+        </manifest>
+        <spine toc="My_Table_of_Contents">
+                <itemref idref="item0"/>
+                %s
+        </spine>
+        <tours></tours>
+        <guide>
+                <reference type="toc" title="Table of Contents" href="%s"></reference>
+        </guide>
+</package>'''%(today,coverPath,tocNcxPath,tocHtmlPath,htmlPathTag,itemref,tocHtmlPath)
+
+        filename=realPath+"/WDQK_%s.opf"%(today)
+        ot_file=open(filename,'w')
+        ot_file.write(opf)
+        ot_file.close()
+        return filename
+
+        
 def main():
     '''Run the main program'''
     try:
