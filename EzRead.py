@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-EzRead can fetch WebPage content with aweasome layout and send it to your kindle automatically
-Now it only fit for 《武动乾坤》,a popular fiction on Qidian.com
-if you like this fiction, you can download and use EzRead immediately.
+EzRead can fetch WebPage content with awesome layout and send it to your kindle automatically
+You can write your own template file and link it to bookinfo.cfg
 
 Author:lqik2004
 
@@ -24,7 +23,7 @@ EzRead contains free software "SENDTOKINDLE" which author is kparal（https://gi
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import ConfigParser
-import optparse
+from optparse import OptionParser
 import os
 import smtplib
 import sys
@@ -45,12 +44,12 @@ import string
 import subprocess
 import time
 
-_version = '1'
+_version = '1.3'
 realPath=os.path.dirname(os.path.realpath(__file__))
 ####################SENDTOKINDLE####################
 class SendKindle:
     conffile=realPath+'/sendkindle.cfg'
-    sample_conf='''  [Default]
+    sample_conf='''  [SENDTOKINDLE]
   smtp_server = smtp.gmail.com
   smtp_port = 465
   smtp_login = username
@@ -67,13 +66,13 @@ class SendKindle:
         try:
             if not config.read([os.path.expanduser(self.conffile)]):
                 raise IOError('%s could not be read' % self.conffile)
-            self.smtp_server = config.get('Default', 'smtp_server')
-            self.smtp_port = config.getint('Default', 'smtp_port')
-            self.smtp_login = config.get('Default', 'smtp_login')
-            self.user_email = config.get('Default', 'user_email')
-            self.kindle_email = config.get('Default', 'kindle_email')
-            self.smtp_password =config.get('Default', 'smtp_password')
-            self.convert = config.getboolean('Default', 'convert')
+            self.smtp_server = config.get('SENDTOKINDLE', 'smtp_server')
+            self.smtp_port = config.getint('SENDTOKINDLE', 'smtp_port')
+            self.smtp_login = config.get('SENDTOKINDLE', 'smtp_login')
+            self.user_email = config.get('SENDTOKINDLE', 'user_email')
+            self.kindle_email = config.get('SENDTOKINDLE', 'kindle_email')
+            self.smtp_password =config.get('SENDTOKINDLE', 'smtp_password')
+            self.convert = config.getboolean('SENDTOKINDLE', 'convert')
         except (IOError, ConfigParser.Error, ValueError) as e:
             print e
             message = "You're missing a program configuration file. Please " \
@@ -84,7 +83,7 @@ class SendKindle:
 
     def send_mail(self,files):
         '''Send email with attachments'''
-
+        print('Waiting for sending file to email...It may takes a few minutes')
         # create MIME message
         msg = MIMEMultipart()
         msg['From'] = self.user_email
@@ -128,48 +127,105 @@ class SendKindle:
 ################CORE CLASS##################
 class GenTextFiles(object):
     """Generate Text File(s) From Web and Send it/them To Your Kindle"""
-    def __init__(self):
+    def __init__(self,kindlegenBoolValue,sendBoolValue):
         super(GenTextFiles, self).__init__()
+        self.kindlegenBoolValue=kindlegenBoolValue
+        self.sendBoolValue=sendBoolValue
         self.filenames=[]
+        #Read books config file 
+        self.booksConfig=[]
+        self.load_config()
+        for book in self.booksConfig:
+            #clean filenames' cache
+            self.filenames=[]
+            url=book['url']
+            moduleName=book['ExtendFile']
+            ExtendFile=__import__(moduleName)
+            func=ExtendFile.MainInfo(url)
+            text=func.get_main_content()
+            pg=func.get_PG_Num()
+            perfix=book['filename_perfix']
+            texttitle=func.get_title()
+            textencoding=func.encoding
+            nexturl=func.get_nextpage_url()
+            fname=perfix+pg+".txt"
 
-        lasturl=open(realPath+"/lasturl.txt").read()
-        url=lasturl
-        #Doc Number--I could not use chinese char in file title...help me ,pls.
-        pg=re.search(r'([^./]*).html$',url).group(1)
-        fname="ZT_"+pg+".txt"
+            
+            files = os.listdir(realPath)  
+            result=fname in files
+            if result is False:
+                #不存在
+                self.genNewFile(perfix,pg,text,texttitle,textencoding)
 
-        
-        files = os.listdir(realPath)  
-        result=fname in files
-        if result is False:
-            #不存在
-            self.genNewFile(url,pg)
-
-        while self.searchNextURL(url) is True :
-            lasturl=open(realPath+"/lasturl.txt").read()
-            url=lasturl
-            #Doc Number--I could not use chinese char in file title...help me ,pls.
-            pg=re.search(r'([^./]*).html$',url).group(1)
-            self.genNewFile(url,pg)
-            
-        if self.filenames :
-            mobifilePath=self.makeMobiVersion(self.filenames)
-            
-            #send files to kindle
-            kindle = SendKindle()
-            #if you don't want send mobi file you can change mobifilePath to self.filenames(text file path)
-            kindle.send_mail(mobifilePath)
-            
-    def searchNextURL(self,currenturl):
-        req = urllib.urlopen(currenturl)
-        text = req.read()
+            while nexturl is not None:
+                #write url to configfile as currenturl
+                self.set_config(book['section'],'url',nexturl)
+                url=nexturl
+                moduleName=book['ExtendFile']
+                ExtendFile=__import__(moduleName)
+                func=ExtendFile.MainInfo(url)
+                text=func.get_main_content()
+                pg=func.get_PG_Num()
+                perfix=book['filename_perfix']
+                texttitle=func.get_title()
+                textencoding=func.encoding
+                nexturl=func.get_nextpage_url()
+                fname=perfix+pg+".txt"
+                self.genNewFile(perfix,pg,text,texttitle,textencoding)
+            if self.filenames:
+                sendfilePath=self.filenames
+                if self.kindlegenBoolValue:
+                    sendfilePath=self.makeMobiVersion(self.filenames,book['author'],book['bookname'],perfix)
+                if self.sendBoolValue:
+                    #send files to kindle
+                    kindle = SendKindle()
+                    kindle.send_mail(sendfilePath)
+    def load_config(self):
+        config_path=realPath+'/bookinfo.cfg'
+        config=ConfigParser.RawConfigParser()
         try:
-            nexturl=re.search(r"<a\s*id=\"xiayipian\"\s*class=\"r\"\s*href=\"([^\"]*)",text)
-            if nexturl is not None:
-                nexturl=nexturl.group(1)
-        finally:
-            pass
+            if not config.read(config_path):
+                raise IOError('%s could not be read' % config_path)
+            for book in config.sections():
+                filename_perfix=config.get(book,'filename_perfix')
+                ExtendFile=config.get(book,'ExtendFile')
+                author=config.get(book,'author')
+                bookname=config.get(book,'bookname')
+                url=config.get(book,'url')
+                section=book
+                dic={'filename_perfix':filename_perfix,'ExtendFile':ExtendFile,'author':author,'bookname':bookname,
+                'url':url,'section':section}
+                self.booksConfig.append(dic)
+                #print filename_perfix,url,ExtendFile,author,bookname
 
+        except (IOError, ConfigParser.Error, ValueError) as e:
+            print e
+            message = "You're missing a program configuration file. Please " \
+                      "create %s with the following example content:\n" \
+                      "%s" % (self.conffile, self.sample_conf)
+            print >> sys.stderr, message
+            sys.exit(3)
+
+    def set_config(self,section,item,content):
+        config_path=realPath+'/bookinfo.cfg'
+        config=ConfigParser.RawConfigParser()
+        try:
+            if not config.read(config_path):
+                raise IOError('%s could not be read' % config_path)
+            config.set(section,item,content)
+
+        except (IOError, ConfigParser.Error, ValueError) as e:
+            print e
+            message = "You're missing a program configuration file. Please " \
+                      "create %s with the following example content:\n" \
+                      "%s" % (self.conffile, self.sample_conf)
+            print >> sys.stderr, message
+            sys.exit(3)
+        with open(config_path, 'wb') as configfile:
+            config.write(configfile)
+        
+            
+    def searchNextURL(self,nexturl):
         if nexturl is not None:
             wirte_lastURlFile=codecs.open(realPath+"/lasturl.txt","w",'utf-8')
             wirte_lastURlFile.write(nexturl)
@@ -177,17 +233,14 @@ class GenTextFiles(object):
             #print nexturl
             return True
          
-    def genNewFile(self,url,pg): 
-        req = urllib.urlopen(url)
-        text = req.read()
+    def genNewFile(self,perfix,pg,content,texttitle,textencoding): 
         #title
-        title=re.search(r'<H1>([^<]*)</H1>',text).group(1)
-        title=title
+        title=texttitle
         title=title.decode("utf-8")
         #print title
         
-        text=re.search(r'<div class="content-body">[\s\S]*<div style="clear:both">', text).group()    
-        encoding = _getCharacterEncoding(req.headers, text)[0]
+        text=content    
+        encoding = textencoding
         if encoding == 'us-ascii': encoding = 'utf-8'
         try:
             text = text.decode(encoding)
@@ -197,23 +250,26 @@ class GenTextFiles(object):
         output.ignore_links=True
         ot_string=output.handle(text)
         ot_string=title+u"\n\n"+ot_string+u"\n感谢使用本书的自动生成工具EzRead\n作者：lqik2004#gmail.com\nTwitter:@lqik2004"
-        filename=realPath+"/ZT_"+pg+".txt"
+        filename=realPath+"/"+perfix+pg+".txt"
         ot_file=codecs.open(filename,'w','utf-8')
         ot_file.write(ot_string)
         ot_file.close()
         print "生成新文件：%s"%(filename)
         self.filenames.append(filename)
 
-    def makeMobiVersion(self,txtfilenames):
-        MakeMobiFiles=makeMobiFiles()
+    def makeMobiVersion(self,txtfilenames,author,bookname,perfix):
+        MakeMobiFiles=makeMobiFiles(author,bookname,perfix)
         mobifilePath=MakeMobiFiles.genMobiFiles(txtfilenames)
         return mobifilePath
 
 #@@@@@@@@@@@@@@@@--MOBI FILES--@@@@@@@@@@@@@@@@@@@#
 class makeMobiFiles(object):
     """docstring for makeMobiFiles"""
-    def __init__(self):
+    def __init__(self,author,bookname,filename_perfix):
         super(makeMobiFiles, self).__init__()
+        self.author=author
+        self.bookname=bookname
+        self.perfix=filename_perfix
 
     def genMobiFiles(self,txtfilenames):
         mobifilePath=[]
@@ -222,8 +278,8 @@ class makeMobiFiles(object):
         tocHtmlPath=self.make_TOC_html(htmlFilePathAndTitle)
         tocNcxPath=self.make_TOC_ncx(htmlFilePathAndTitle,tocHtmlPath)
         opfPath=self.make_OPF(coverPath,tocNcxPath,tocHtmlPath,htmlFilePathAndTitle)
-        #change the path and the kindlegen file to your path
-        cmd = realPath+('/KindleGen %s' % opfPath)
+        #change the path and the kindlegen file to your path c2 is Kindle Hight Compression
+        cmd = realPath+('/KindleGen %s -c1' % opfPath)
         print cmd
         subprocess.call(cmd, shell=True)
         mobifilePath.append(os.path.splitext(opfPath)[0]+".mobi")
@@ -291,9 +347,9 @@ class makeMobiFiles(object):
 <meta name="dtb:totalPageCount" content="0"/>
 <meta name="dtb:maxPageNumber" content="0"/>
 </head>
-<docTitle><text>遮天</text></docTitle>
-<docAuthor><text>辰东</text></docAuthor>
-<navMap>'''
+<docTitle><text>%s</text></docTitle>
+<docAuthor><text>%s</text></docAuthor>
+<navMap>''' % (self.bookname,self.author)
         ncxtoc='''<navPoint class="toc" id="toc" playOrder="1">
         <navLabel><text>Table of Contents</text></navLabel>
         <content src="%s"/></navPoint>'''%(tocPath)
@@ -329,10 +385,10 @@ class makeMobiFiles(object):
 <package unique-identifier="uid">
         <metadata>
                 <dc-metadata xmlns:dc="http://purl.org/metadata/dublin_core" xmlns:oebpackage="http://openebook.org/namespaces/oeb-package/1.0/">
-                        <dc:Title>遮天%s</dc:Title>
+                        <dc:Title>%s%s</dc:Title>
                         <dc:Language>zh</dc:Language>
                         <dc:Identifier id="uid">010B5D2ACA</dc:Identifier>
-                        <dc:Creator>作者:辰东 生成工具:EzRead</dc:Creator>
+                        <dc:Creator>作者:%s 生成工具:EzRead</dc:Creator>
                         <dc:Subject>小说</dc:Subject>
                 </dc-metadata>
                 <x-metadata>
@@ -353,9 +409,9 @@ class makeMobiFiles(object):
         <guide>
                 <reference type="toc" title="Table of Contents" href="%s"></reference>
         </guide>
-</package>'''%(today,coverPath,tocNcxPath,tocHtmlPath,htmlPathTag,itemref,tocHtmlPath)
+</package>'''%(self.bookname,today,self.author,coverPath,tocNcxPath,tocHtmlPath,htmlPathTag,itemref,tocHtmlPath)
 
-        filename=realPath+"/ZT_%s.opf"%(today)
+        filename=realPath+"/%s%s.opf"%(self.perfix,today)
         ot_file=open(filename,'w')
         ot_file.write(opf)
         ot_file.close()
@@ -364,8 +420,19 @@ class makeMobiFiles(object):
         
 def main():
     '''Run the main program'''
+    usage="%prog [options]"
+    parser=OptionParser(usage)
+    parser.add_option("-k","--kindlegen",action="store_true",dest="kindlegenBoolValue",
+        help="Convert txt files to a mobi file with KindleGen")
+    parser.add_option("-s","--sendtokindle",action="store_true",dest="sendBoolValue",
+        help="Automatically send files to Your Kindle Email Address")
+    (options,args)=parser.parse_args()
+    if options.kindlegenBoolValue is True:
+        print 'kindlegenBoolValue is open'
+    if options.sendBoolValue is True:
+        print 'sendBoolValue is open'
     try:
-        GenTextFiles()
+        GenTextFiles(options.kindlegenBoolValue,options.sendBoolValue)
     except KeyboardInterrupt as e:
         print >> sys.stderr, 'Program interrupted, exiting...'
         sys.exit(10)
