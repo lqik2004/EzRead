@@ -35,10 +35,9 @@ from email.MIMEText import MIMEText
 from email.generator import Generator
 from email.header import Header
 import re
-import urllib2
 import urllib
 import codecs
-from feedparser import _getCharacterEncoding
+import chardet
 import html2text
 import string
 import subprocess
@@ -146,7 +145,6 @@ class GenTextFiles(object):
             pg=func.get_PG_Num()
             perfix=book['filename_perfix']
             texttitle=func.get_title()
-            textencoding=func.encoding
             nexturl=func.get_nextpage_url()
             fname=perfix+pg+".txt"
 
@@ -155,7 +153,7 @@ class GenTextFiles(object):
             result=fname in files
             if result is False:
                 #不存在
-                self.genNewFile(perfix,pg,text,texttitle,textencoding)
+                self.genNewFile(perfix,pg,text,texttitle)
 
             while nexturl is not None:
                 #write url to configfile as currenturl
@@ -168,10 +166,9 @@ class GenTextFiles(object):
                 pg=func.get_PG_Num()
                 perfix=book['filename_perfix']
                 texttitle=func.get_title()
-                textencoding=func.encoding
                 nexturl=func.get_nextpage_url()
                 fname=perfix+pg+".txt"
-                self.genNewFile(perfix,pg,text,texttitle,textencoding)
+                self.genNewFile(perfix,pg,text,texttitle)
             if self.filenames:
                 sendfilePath=self.filenames
                 if self.kindlegenBoolValue:
@@ -233,23 +230,16 @@ class GenTextFiles(object):
             #print nexturl
             return True
          
-    def genNewFile(self,perfix,pg,content,texttitle,textencoding): 
+    def genNewFile(self,perfix,pg,content,texttitle): 
         #title
-        title=texttitle
-        title=title.decode("utf-8")
-        #print title
-        
+        title=texttitle.decode(chardet.detect(texttitle)['encoding'])
+        #main_text
         text=content    
-        encoding = textencoding
-        if encoding == 'us-ascii': encoding = 'utf-8'
-        try:
-            text = text.decode(encoding)
-        except UnicodeDecodeError:
-            text = text.decode(chardet.detect(text)['encoding'])            
+        text = text.decode(chardet.detect(text)['encoding'])            
         output=html2text.HTML2Text()
         output.ignore_links=True
         ot_string=output.handle(text)
-        ot_string=title+u"\n\n"+ot_string+u"\n感谢使用本书的自动生成工具EzRead\n作者：lqik2004#gmail.com\nTwitter:@lqik2004"
+        ot_string=title+u"\n\n"+ot_string+u"\n感谢使用本书的自动生成工具EzRead\n作者：lqik2004@gmail.com\nTwitter:@lqik2004"
         filename=realPath+"/"+perfix+pg+".txt"
         ot_file=codecs.open(filename,'w','utf-8')
         ot_file.write(ot_string)
