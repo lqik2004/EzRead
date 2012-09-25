@@ -258,15 +258,14 @@ class GenTextFiles(object):
         self.filenames.append(filename)
 
     def makeMobiVersion(self,txtfilenames,author,bookname,perfix):
-        MakeMobiFiles=makeMobiFiles(author,bookname,perfix)
-        mobifilePath=MakeMobiFiles.genMobiFiles(txtfilenames)
+        mobifilePath=MakeMobiFiles(author,bookname,perfix).genMobiFiles(txtfilenames)
         return mobifilePath
 
 #@@@@@@@@@@@@@@@@--MOBI FILES--@@@@@@@@@@@@@@@@@@@#
-class makeMobiFiles(object):
-    """docstring for makeMobiFiles"""
+class MakeMobiFiles(object):
+    """docstring for MakeMobiFiles"""
     def __init__(self,author,bookname,filename_perfix):
-        super(makeMobiFiles, self).__init__()
+        super(MakeMobiFiles, self).__init__()
         self.author=author
         self.bookname=bookname
         self.perfix=filename_perfix
