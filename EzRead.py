@@ -197,9 +197,7 @@ class GenTextFiles(object):
 
         except (IOError, ConfigParser.Error, ValueError) as e:
             print e
-            message = "You're missing a program configuration file. Please " \
-                      "create %s with the following example content:\n" \
-                      "%s" % (self.conffile, self.sample_conf)
+            message = "Something wrong with configfile"
             print >> sys.stderr, message
             sys.exit(3)
 
@@ -213,9 +211,7 @@ class GenTextFiles(object):
 
         except (IOError, ConfigParser.Error, ValueError) as e:
             print e
-            message = "You're missing a program configuration file. Please " \
-                      "create %s with the following example content:\n" \
-                      "%s" % (self.conffile, self.sample_conf)
+            message = "Something wrong with configfile"
             print >> sys.stderr, message
             sys.exit(3)
         with open(config_path, 'wb') as configfile:
